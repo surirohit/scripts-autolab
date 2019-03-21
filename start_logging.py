@@ -121,17 +121,29 @@ def get_device_list(input_file):
 
 
 def check_device(device):
-    return os.popen('ssh -q %s@%s.local \
-                            "if [ -e /data/logs ]; \
-                                then if [ -e /dev/sda1 ]; \
-                                        then echo SD; \
-                                        else echo Logs; \
-                                        fi; \
-                                else echo Nothing; \
-                            fi;" \
-                        || echo Error' %(device['username'],device['hostname'])).read()
+    # TODO: solve the problems that can be solved
+    # TODO: mount | grep -c /data/logs doesn't work the same over ssh command as over ssh session
+    res = os.popen('ssh -q %s@%s.local "\
+                            if [ -e /data/logs ]; \
+                            then \
+                                if [ -e /dev/sda1 ]; \
+                                then \
+                                    if [ $(mount | grep -c /data/logs) != 1 ]; \
+                                    then \
+                                        sudo mount -t vfat /dev/sda1 /data/logs -o umask=000 > /dev/null 2>&1; echo Mounted now; \
+                                    else \
+                                        echo Already Mounted; \
+                                    fi; \
+                                else \
+                                    echo Logs; \
+                                fi; \
+                            else \
+                                echo Nothing; \
+                            fi; \
+                            " || echo Error' %(device['username'],device['hostname'])).read()
+    res = res.rstrip()
+    return res
 
-    # custom_print(device['preflight_status']+' '+device['hostname']+'\n')
 
 def start_logging_checks(device_list):
 
@@ -152,32 +164,11 @@ def start_logging_checks(device_list):
             
     custom_print('\t {:<4}{:<20}|{:<4}{:<20} \n'.format('='*4,'='*20,'='*4,'='*20))
 
-    
-    
-
-            
-    # for device in device_list:
-    #     device['status_tries'] = 3
-
-    # while True:
-
-    #     check = [device['status_tries']==0 for device in device_list]
-    #     if False not in check:
-    #         break
-        
-    #     for device in device_list:
-    #         device['status_tries']-=1
-    #         custom_print(device['hostname'] + ":  " + os.popen('ssh -q %s@%s.local \
-    #                                     "if [ -e /data/logs ]; \
-    #                                         then if [ -e /dev/sda1 ]; \
-    #                                                 then echo SD; \
-    #                                                 else echo Logs; \
-    #                                              fi; \
-    #                                         else echo Nothing; \
-    #                                     fi;" \
-    #                                 || echo Error' %(device['username'],device['hostname'])).read())
-                            
     return
+
+#########################
+###    Main Script    ###
+#########################
 
 if __name__ == '__main__':
 
