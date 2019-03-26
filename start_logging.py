@@ -121,9 +121,8 @@ def get_device_list(input_file):
 
 
 def check_device(device):
-    # TODO: solve the problems that can be solved
-    # TODO: mount | grep -c /data/logs doesn't work the same over ssh command as over ssh session
-    res = os.popen('ssh -q %s@%s.local "\
+    # TODO: try to solve the problems that can be solved
+    res = os.popen('ssh -q %s@%s.local \'bash -c "\
                             if [ -e /data/logs ]; \
                             then \
                                 if [ -e /dev/sda1 ]; \
@@ -140,7 +139,7 @@ def check_device(device):
                             else \
                                 echo Nothing; \
                             fi; \
-                            " || echo Error' %(device['username'],device['hostname'])).read()
+                            "\' || echo Error' %(device['username'],device['hostname'])).read()
     res = res.rstrip()
     return res
 
