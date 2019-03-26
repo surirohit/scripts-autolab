@@ -121,7 +121,7 @@ def get_device_list(input_file):
 
 
 def check_device(device):
-    # TODO: try to solve the problems that can be solved
+    # TODO: create /data/logs if it doesn't exist. Not too important because it is supposed to be there in new SD cards
     res = os.popen('ssh -q %s@%s.local \'bash -c "\
                             if [ -e /data/logs ]; \
                             then \
@@ -165,6 +165,63 @@ def start_logging_checks(device_list):
 
     return
 
+def start_device_logging(device):
+    res = os.popen('docker -H %s.local run --rm -d --net host --name logger -v /data/logs:/logs \
+                        duckietown/rpi-duckiebot-logger:master18 > /dev/null 2>&1;' % (device['hostname'])).read()
+
+    res = os.popen('docker -H %s.local inspect -f \'{{.State.Running}}\' logger' % (device['hostname'])).read()
+    res = res.rstrip()
+    return res
+
+def start_logging(device_list):
+    
+    pool = multiprocessing.Pool(processes=20)
+    results = pool.map(start_device_logging, device_list)
+    pool.close()
+    pool.join()
+
+    for (res,device) in zip(results, device_list):
+        device['logger_status'] = res.rstrip()
+
+    custom_print('\t {:<4}{:<20}|{:<4}{:<20} \n'.format('='*4,'='*20,'='*4,'='*20)) 
+    custom_print('\t|{:<4}{:<20}|{:<4}{:<20}|\n'.format('','Device','','Status'))
+    custom_print('\t|{:<4}{:<20}|{:<4}{:<20}|\n'.format('='*4,'='*20,'='*4,'='*20))
+    
+    for device in device_list:
+        custom_print('\t|{:<4}{:<20}|{:<4}{:<20}|\n'.format('',device['hostname'],'',device['logger_status']))
+            
+    custom_print('\t {:<4}{:<20}|{:<4}{:<20} \n'.format('='*4,'='*20,'='*4,'='*20))
+
+    return
+
+def stop_device_logging(device):
+    res = os.popen('docker -H %s.local stop logger' % (device['hostname'])).read()
+    res = res.rstrip()
+    return res
+
+
+def stop_logging(device_list):
+    
+    pool = multiprocessing.Pool(processes=20)
+    results = pool.map(stop_device_logging, device_list)
+    pool.close()
+    pool.join()
+
+    for (res,device) in zip(results, device_list):
+        device['logger_status'] = res.rstrip()
+
+    custom_print('\t {:<4}{:<20}|{:<4}{:<20} \n'.format('='*4,'='*20,'='*4,'='*20)) 
+    custom_print('\t|{:<4}{:<20}|{:<4}{:<20}|\n'.format('','Device','','Status'))
+    custom_print('\t|{:<4}{:<20}|{:<4}{:<20}|\n'.format('='*4,'='*20,'='*4,'='*20))
+    
+    for device in device_list:
+        custom_print('\t|{:<4}{:<20}|{:<4}{:<20}|\n'.format('',device['hostname'],'',device['logger_status']))
+            
+    custom_print('\t {:<4}{:<20}|{:<4}{:<20} \n'.format('='*4,'='*20,'='*4,'='*20))
+
+    return
+    
+
 #########################
 ###    Main Script    ###
 #########################
@@ -196,6 +253,25 @@ if __name__ == '__main__':
     else:
         clear_screen()
 
+    # Step 3
+    custom_print('Starting logging:\n')
+    start_logging(device_list)
+
+    ret_val = continue_question()
+    if not ret_val:
+        finish(0)
+    else:
+        clear_screen()
+
+    # Step 3
+    custom_print('Stopping logging:\n')
+    stop_logging(device_list)
+
+    ret_val = continue_question()
+    if not ret_val:
+        finish(0)
+    else:
+        clear_screen()
 
     custom_print('\nEverything finished successfully. Quack!\n')
 
